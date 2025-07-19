@@ -9,8 +9,14 @@ import okhttp3.Request
 
 object CountryService {
 
-    private val url = "https://gist.githubusercontent.com/peymano-wmt/32dcb892b06648910ddd40406e37fdab/raw/db25946fd77c5873b0303b858e861ce724e0dcd0/countries.json"
+    var url: String = "https://gist.githubusercontent.com/peymano-wmt/32dcb892b06648910ddd40406e37fdab/raw/db25946fd77c5873b0303b858e861ce724e0dcd0/countries.json"
     //private val url = "https://invalid.url/test.json"
+
+    var postToMainThread: ((() -> Unit) -> Unit) = { block ->
+        Handler(Looper.getMainLooper()).post(block)
+    }
+
+    var client: OkHttpClient = OkHttpClient()
 
     fun fetchCountries(
         onSuccess: (List<Country>) -> Unit,
@@ -18,19 +24,17 @@ object CountryService {
     ) {
         Thread {
             try {
-                val client = OkHttpClient()
                 val request = Request.Builder().url(url).build()
                 val response = client.newCall(request).execute()
                 val json = response.body?.string()
                 if (response.isSuccessful && json != null) {
-                    //Thread.sleep(3000)
                     val countryList = Gson().fromJson(json, Array<Country>::class.java).toList()
-                    Handler(Looper.getMainLooper()).post { onSuccess(countryList) }
+                    postToMainThread { onSuccess(countryList) }
                 } else {
                     throw Exception("Failed to fetch countries: ${response.code}")
                 }
             } catch (e: Exception) {
-                Handler(Looper.getMainLooper()).post { onError(e) }
+                postToMainThread { onError(e) }
             }
         }.start()
     }
